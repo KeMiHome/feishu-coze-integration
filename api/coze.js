@@ -23,6 +23,9 @@ async function getCozeAccessToken() {
       jti: generateRandomString(32),
     };
 
+    // 👇 就加这一行！修复 Vercel 环境变量换行问题
+    const privateKeyContent = process.env.COZE_JWT_OAUTH_PRIVATE_KEY.replace(/\\n/g, '\n');
+
     // 导入私钥（jose 标准写法）
     const privateKey = await importPKCS8(
       process.env.COZE_JWT_OAUTH_PRIVATE_KEY,
