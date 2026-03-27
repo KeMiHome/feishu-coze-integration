@@ -12,6 +12,56 @@ function generateRandomString(length) {
 }
 
 // 获取 Coze Access Token
+//async function getCozeAccessToken() {
+//  try {
+//    const now = Math.floor(Date.now() / 1000);
+//    const payload = {
+//      iss: process.env.COZE_JWT_OAUTH_CLIENT_ID,
+//      aud: 'api.coze.cn',
+//      iat: now,
+//      exp: now + 3600,
+//      jti: generateRandomString(32),
+//    };
+//
+//    // 导入私钥（jose 标准写法）
+//    const privateKey = await importPKCS8(
+//      process.env.COZE_JWT_OAUTH_PRIVATE_KEY,
+//      'RS256'
+//    );
+//
+//    // 签名 JWT
+//    const jwt = await new SignJWT(payload)
+//      .setProtectedHeader({
+//        alg: 'RS256',
+//        kid: process.env.COZE_JWT_OAUTH_PUBLIC_KEY_ID,
+//        typ: 'JWT',
+//      })
+//      .sign(privateKey);
+//
+//    // ✅ 换取 Token（修复了请求头）
+//    const tokenResponse = await axios.post(
+//      'https://api.coze.cn/api/permission/oauth2/token',
+//      {
+//        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+//        assertion: jwt,
+//        ttl: 3600,
+//      },
+//      {
+//        headers: {
+//          'Content-Type': 'application/json',
+//          // ❌ 这里原来的 Authorization 已删除
+//        },
+//      }
+//    );
+//
+//    return tokenResponse.data.access_token;
+//  } catch (error) {
+//    console.error('获取Token失败:', error.response?.data || error.message);
+//    throw error;
+//  }
+//}
+
+// 获取 Coze Access Token
 async function getCozeAccessToken() {
   try {
     const now = Math.floor(Date.now() / 1000);
@@ -23,11 +73,21 @@ async function getCozeAccessToken() {
       jti: generateRandomString(32),
     };
 
-    // 导入私钥（jose 标准写法）
-    const privateKey = await importPKCS8(
-      process.env.COZE_JWT_OAUTH_PRIVATE_KEY,
-      'RS256'
-    );
+    // ✅ 修复私钥格式处理
+    let privateKey = process.env.COZE_JWT_OAUTH_PRIVATE_KEY;
+
+    // 处理可能的 \n 字面量
+    if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+
+    // 确保私钥有正确的格式
+    if (!privateKey?.startsWith('-----BEGIN PRIVATE KEY-----') || !privateKey?.endsWith('-----END PRIVATE KEY-----')) {
+      throw new Error('Invalid private key format in environment variable');
+    }
+
+    // 导入私钥
+    const pkcs8Key = await importPKCS8(privateKey, 'RS256');
 
     // 签名 JWT
     const jwt = await new SignJWT(payload)
@@ -36,9 +96,9 @@ async function getCozeAccessToken() {
         kid: process.env.COZE_JWT_OAUTH_PUBLIC_KEY_ID,
         typ: 'JWT',
       })
-      .sign(privateKey);
+      .sign(pkcs8Key);
 
-    // ✅ 换取 Token（修复了请求头）
+    // 换取 Token
     const tokenResponse = await axios.post(
       'https://api.coze.cn/api/permission/oauth2/token',
       {
@@ -49,14 +109,19 @@ async function getCozeAccessToken() {
       {
         headers: {
           'Content-Type': 'application/json',
-          // ❌ 这里原来的 Authorization 已删除
         },
       }
     );
 
     return tokenResponse.data.access_token;
   } catch (error) {
-    console.error('获取Token失败:', error.response?.data || error.message);
+    // ✅ 更详细的错误信息
+    console.error('获取Token失败:', {
+      message: error.message,
+      responseData: error.response?.data,
+      privateKeyPresent: !!process.env.COZE_JWT_OAUTH_PRIVATE_KEY,
+      privateKeyFirstChars: process.env.COZE_JWT_OAUTH_PRIVATE_KEY?.substring(0, 50)
+    });
     throw error;
   }
 }
