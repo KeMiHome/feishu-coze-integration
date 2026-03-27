@@ -2,17 +2,22 @@ import axios from 'axios';
 import { SignJWT, importPKCS8 } from 'jose';
 
 // ============================================================================
-// Coze OAuth JWT - 问题修复版本
+// Coze OAuth JWT (开发者模式) - 最终修复版本
 // ============================================================================
-// 发现的问题：
-// 1. ❌ 参数名错误：使用 'duration' 而不是 'duration_seconds'
-// 2. ❌ 缺少环境变量验证
-// 3. ❌ 请求体记录不够详细
+// 问题分析：
+// - JWT 格式已经正确（iat/exp 都是数字）
+// - 但 Coze 仍然报 "invalid jwt: empty jwt token"
+// - 这说明问题在请求体的传递方式上
 //
-// 根据官方文档修复：
-// - duration -> duration_seconds
-// - 增加环境变量验证
-// - 增加请求体完整记录
+// 可能原因：
+// 1. Coze 期望的是 URL 编码格式，不是 JSON 格式
+// 2. assertion 字段可能被错误转义或编码
+// 3. JWT 本身可能包含 Coze 不支持的字符
+//
+// 解决方案：
+// - 尝试两种请求格式：URL 编码和 JSON
+// - 增强日志，输出完整的请求体
+// - 验证 JWT 的完整性
 // ============================================================================
 
 /**
@@ -22,42 +27,6 @@ let cachedToken = {
   accessToken: null,
   expiresAt: 0,
 };
-
-/**
- * 验证环境变量
- */
-function validateEnvironment() {
-  const required = [
-    'COZE_JWT_OAUTH_CLIENT_ID',
-    'COZE_JWT_OAUTH_PUBLIC_KEY_ID',
-    'COZE_WORKFLOW_ID',
-  ];
-
-  const optional = [
-    'COZE_JWT_OAUTH_PRIVATE_KEY_BASE64',
-    'COZE_JWT_OAUTH_PRIVATE_KEY',
-    'COZE_JWT_SESSION_NAME',
-  ];
-
-  const errors = [];
-
-  for (const key of required) {
-    if (!process.env[key]) {
-      errors.push(`缺少必需的环境变量: ${key}`);
-    }
-  }
-
-  if (!process.env.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64 && !process.env.COZE_JWT_OAUTH_PRIVATE_KEY) {
-    errors.push('至少需要配置 COZE_JWT_OAUTH_PRIVATE_KEY_BASE64 或 COZE_JWT_OAUTH_PRIVATE_KEY 其中之一');
-  }
-
-  if (errors.length > 0) {
-    throw new Error(errors.join('\n'));
-  }
-
-  console.log('✅ 环境变量验证通过');
-  return true;
-}
 
 /**
  * 生成随机字符串（用于 JWT 的 jti）
@@ -76,43 +45,35 @@ function generateRandomString(length = 32) {
  */
 function getPrivateKey() {
   let privateKey;
-  let keySource;
 
   if (process.env.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64) {
-    keySource = 'Base64编码';
+    console.log('🔑 使用 Base64 编码的私钥');
     privateKey = Buffer.from(
       process.env.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64,
       'base64'
     ).toString('utf-8');
   } else if (process.env.COZE_JWT_OAUTH_PRIVATE_KEY) {
-    keySource = '原始字符串';
+    console.log('🔑 使用原始私钥');
     privateKey = process.env.COZE_JWT_OAUTH_PRIVATE_KEY;
 
-    if (privateKey.includes('\\n')) {
-      console.log('⚠️  检测到转义字符 \\n，尝试修复...');
+    if (privateKey && privateKey.includes('\\n')) {
+      console.log('⚠️  检测到转义问题，尝试修复...');
       privateKey = privateKey.replace(/\\n/g, '\n');
-      console.log('✅ 已修复转义字符');
     }
   } else {
-    throw new Error('未找到可用的私钥');
+    throw new Error('未找到私钥环境变量');
   }
 
-  console.log(`📋 私钥来源: ${keySource}`);
-  console.log(`📊 私钥长度: ${privateKey.length} 字符`);
+  if (!privateKey?.startsWith('-----BEGIN PRIVATE KEY-----')) {
+    throw new Error(`私钥开头错误: ${privateKey?.substring(0, 50)}`);
+  }
 
-  // 检查私钥格式
-  const startsCorrectly = privateKey.startsWith('-----BEGIN PRIVATE KEY-----');
-  const endsCorrectly = privateKey.endsWith('-----END PRIVATE KEY-----');
-
-  if (!startsCorrectly || !endsCorrectly) {
-    console.error('❌ 私钥格式错误');
-    console.error('💡 私钥必须包含完整的 BEGIN/END 标记');
-    console.error('💡 开头:', privateKey.substring(0, 50));
-    console.error('💡 结尾:', privateKey.substring(privateKey.length - 50));
-    throw new Error('私钥格式错误');
+  if (!privateKey?.endsWith('-----END PRIVATE KEY-----')) {
+    throw new Error(`私钥结尾错误: ${privateKey?.substring(privateKey?.length - 50)}`);
   }
 
   console.log('✅ 私钥格式验证通过');
+  console.log('📊 私钥长度:', privateKey.length);
   return privateKey;
 }
 
@@ -138,14 +99,15 @@ async function generateJWT() {
       console.log('🔐 会话隔离已启用');
     }
 
-    console.log('📋 JWT Payload:');
-    console.log('   iss:', payload.iss);
-    console.log('   aud:', payload.aud);
-    console.log('   iat:', payload.iat, `(${new Date(payload.iat * 1000).toISOString()})`);
-    console.log('   exp:', payload.exp, `(${new Date(payload.exp * 1000).toISOString()})`);
-    console.log('   iat类型:', typeof payload.iat);
-    console.log('   exp类型:', typeof payload.exp);
-    console.log('   jti:', payload.jti);
+    console.log('📋 JWT Payload:', {
+      iss: payload.iss,
+      aud: payload.aud,
+      iat: payload.iat,
+      iat_type: typeof payload.iat,
+      exp: payload.exp,
+      exp_type: typeof payload.exp,
+      jti: payload.jti,
+    });
 
     const privateKey = getPrivateKey();
     const pkcs8Key = await importPKCS8(privateKey, 'RS256');
@@ -160,7 +122,7 @@ async function generateJWT() {
       .sign(pkcs8Key);
 
     console.log('✅ JWT 生成成功');
-    console.log('📊 JWT 长度:', jwt.length, '字符');
+    console.log('📊 JWT 长度:', jwt.length);
 
     // 验证 JWT 结构
     const parts = jwt.split('.');
@@ -170,32 +132,11 @@ async function generateJWT() {
     console.log('✅ JWT 结构验证通过');
 
     // 验证每一部分的长度
-    console.log('📊 JWT 各部分长度:');
-    console.log('   Header:', parts[0].length, '字符');
-    console.log('   Payload:', parts[1].length, '字符');
-    console.log('   Signature:', parts[2].length, '字符');
-
-    // 检查是否有特殊字符
-    const specialChars = [];
-    for (let i = 0; i < jwt.length; i++) {
-      const charCode = jwt.charCodeAt(i);
-      if (charCode > 127) {
-        specialChars.push({
-          index: i,
-          char: jwt[i],
-          code: charCode,
-        });
-      }
-    }
-
-    if (specialChars.length > 0) {
-      console.warn('⚠️  发现非 ASCII 字符:', specialChars.length, '个');
-      specialChars.forEach(item => {
-        console.warn(`   位置 ${item.index}: "${item.char}" (编码: ${item.code})`);
-      });
-    } else {
-      console.log('✅ 未发现非 ASCII 字符');
-    }
+    console.log('📊 JWT 各部分长度:', {
+      header: parts[0].length,
+      payload: parts[1].length,
+      signature: parts[2].length,
+    });
 
     return jwt;
 
@@ -208,8 +149,7 @@ async function generateJWT() {
 /**
  * 使用 URL 编码格式获取 Access Token
  *
- * 修复：
- * - duration -> duration_seconds (官方文档要求)
+ * 这是 OAuth 2.0 的标准格式，Coze 可能期望这种格式
  */
 async function getAccessTokenURLEncoded(jwt) {
   console.log('🔄 尝试方式 1: URL 编码格式（OAuth 2.0 标准）');
@@ -217,16 +157,13 @@ async function getAccessTokenURLEncoded(jwt) {
   const params = new URLSearchParams();
   params.append('grant_type', 'urn:ietf:params:oauth:grant-type:jwt-bearer');
   params.append('assertion', jwt);
-  params.append('duration_seconds', '86399'); // ✅ 修复：duration_seconds (24小时)
+  params.append('duration', '3600');
 
   console.log('📋 请求体（URL 编码）:');
   console.log('   grant_type:', params.get('grant_type'));
   console.log('   assertion长度:', params.get('assertion')?.length);
   console.log('   assertion前50字符:', params.get('assertion')?.substring(0, 50));
-  console.log('   duration_seconds:', params.get('duration_seconds')); // ✅ 修复
-  console.log('');
-  console.log('📋 完整请求体字符串:');
-  console.log(params.toString());
+  console.log('   duration:', params.get('duration'));
 
   const response = await axios.post(
     'https://api.coze.cn/api/permission/oauth2/token',
@@ -247,8 +184,7 @@ async function getAccessTokenURLEncoded(jwt) {
 /**
  * 使用 JSON 格式获取 Access Token
  *
- * 修复：
- * - duration -> duration_seconds (官方文档要求)
+ * 这是现代 API 的常用格式
  */
 async function getAccessTokenJSON(jwt) {
   console.log('🔄 尝试方式 2: JSON 格式');
@@ -256,17 +192,14 @@ async function getAccessTokenJSON(jwt) {
   const requestBody = {
     grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
     assertion: jwt,
-    duration_seconds: 86399, // ✅ 修复：duration_seconds (24小时)
+    duration: 3600,
   };
 
   console.log('📋 请求体（JSON）:');
   console.log('   grant_type:', requestBody.grant_type);
   console.log('   assertion长度:', requestBody.assertion?.length);
   console.log('   assertion前50字符:', requestBody.assertion?.substring(0, 50));
-  console.log('   duration_seconds:', requestBody.duration_seconds); // ✅ 修复
-  console.log('');
-  console.log('📋 完整请求体（JSON）:');
-  console.log(JSON.stringify(requestBody, null, 2));
+  console.log('   duration:', requestBody.duration);
 
   const response = await axios.post(
     'https://api.coze.cn/api/permission/oauth2/token',
@@ -291,9 +224,6 @@ async function getAccessToken() {
   try {
     console.log('🚀 开始获取 Access Token');
 
-    // 验证环境变量
-    validateEnvironment();
-
     // 生成 JWT
     const jwt = await generateJWT();
 
@@ -301,21 +231,13 @@ async function getAccessToken() {
     try {
       return await getAccessTokenURLEncoded(jwt);
     } catch (error1) {
-      console.log('❌ 方式 1 失败');
-      console.error('HTTP 状态码:', error1.response?.status);
-      console.error('错误详情:', error1.response?.data);
-      console.error('错误消息:', error1.message);
-      console.log('');
+      console.log('❌ 方式 1 失败:', error1.response?.data?.error || error1.message);
 
       // 如果 URL 编码失败，尝试 JSON 格式
       try {
         return await getAccessTokenJSON(jwt);
       } catch (error2) {
-        console.log('❌ 方式 2 失败');
-        console.error('HTTP 状态码:', error2.response?.status);
-        console.error('错误详情:', error2.response?.data);
-        console.error('错误消息:', error2.message);
-        console.log('');
+        console.log('❌ 方式 2 失败:', error2.response?.data?.error || error2.message);
 
         // 两种方式都失败，抛出错误
         throw new Error('所有 Token 获取方式都失败');
@@ -328,22 +250,23 @@ async function getAccessToken() {
     if (error.response) {
       console.error('HTTP 状态码:', error.response.status);
       console.error('错误详情:', error.response.data);
-      console.error('错误码:', error.response.data?.error_code || error.response.data?.code);
-      console.error('错误消息:', error.response.data?.error_message || error.response.data?.msg);
 
-      if (error.response.data?.error_message?.includes('empty jwt')) {
-        console.error('');
+      const errorCode = error.response.data.error_code || error.response.data.code;
+      const errorMessage = error.response.data.error_message || error.response.data.msg;
+
+      console.error('错误码:', errorCode);
+      console.error('错误消息:', errorMessage);
+
+      if (errorMessage?.includes('empty jwt')) {
         console.error('💡 特殊错误：JWT 被识别为空');
         console.error('💡 可能原因：');
         console.error('   1. JWT 包含特殊字符导致解析失败');
         console.error('   2. JWT 格式不符合 Coze 期望');
         console.error('   3. assertion 字段未正确传递');
-        console.error('   4. URLSearchParams 编码问题');
-        console.error('');
-        console.error('💡 排查步骤：');
-        console.error('   1. 检查 Vercel 日志中的完整请求体');
-        console.error('   2. 对比官方文档的请求格式');
-        console.error('   3. 尝试手动构造请求测试');
+        console.error('💡 建议：');
+        console.error('   1. 检查 JWT 是否包含非 ASCII 字符');
+        console.error('   2. 尝试重新生成密钥对');
+        console.error('   3. 联系 Coze 技术支持');
       }
     } else if (error.request) {
       console.error('💡 网络错误：无法连接到 Coze API');
@@ -472,7 +395,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       data: result,
-      authMethod: 'OAuth JWT (Final Fix v2)',
+      authMethod: 'OAuth JWT (Ultimate Fix)',
       tokenInfo: {
         expiresAt: new Date(cachedToken.expiresAt).toISOString(),
         remainingSeconds: Math.max(0, Math.floor((cachedToken.expiresAt - Date.now()) / 1000)),
@@ -485,7 +408,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       error: err.message,
-      authMethod: 'OAuth JWT (Final Fix v2)',
+      authMethod: 'OAuth JWT (Ultimate Fix)',
       details: err.response?.data || null,
     });
   }
