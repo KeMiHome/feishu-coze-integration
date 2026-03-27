@@ -217,7 +217,7 @@ async function getAccessTokenURLEncoded(jwt) {
   const params = new URLSearchParams();
   params.append('grant_type', 'urn:ietf:params:oauth:grant-type:jwt-bearer');
   params.append('assertion', jwt);
-  params.append('duration_seconds', '86399'); // ✅ 修复：duration_seconds (24小时)
+  // params.append('duration_seconds', '86399'); // ✅ 修复：duration_seconds (24小时)
 
   console.log('📋 请求体（URL 编码）:');
   console.log('   grant_type:', params.get('grant_type'));
