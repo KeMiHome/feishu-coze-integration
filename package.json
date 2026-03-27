@@ -1,17 +1,9 @@
 {
   "name": "feishu-coze-integration",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "axios": "^1.13.6",
     "jose": "^6.2.2"
   },
-  "type": "commonjs"
+  "type": "module"
 }
