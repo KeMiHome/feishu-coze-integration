@@ -1,12 +1,13 @@
 import axios from 'axios';
 import { SignJWT, importPKCS8 } from 'jose';
+import COS from 'cos-nodejs-sdk-v5';
 
 // ============================================================================
-// Coze OAuth JWT - 生产级完整版
+// Coze OAuth JWT - 生产级完整版（腾讯云EdgeOne适配）
 // ============================================================================
 // 🔥 核心特性：
-// 1. Coze 特有的认证方式：JWT 通过 Authorization header 传递
-// 2. 智能缓存策略：提前刷新 Token，避免请求失败
+// 1. 配置从腾讯云COS加载，解决EdgeOne环境变量长度限制
+// 2. 智能缓存策略：提前刷新Token，避免请求失败
 // 3. 指数退避重试：对可重试错误自动重试
 // 4. 完善的错误处理：详细的日志和错误分类
 // ============================================================================
@@ -36,6 +37,7 @@ const CONFIG = {
     JWT: 5000,                 // JWT 生成超时
     TOKEN: 10000,               // Token 获取超时
     WORKFLOW: 30000,            // 工作流调用超时
+    CONFIG: 10000,              // 配置加载超时
   },
 
   // API 端点
@@ -55,6 +57,22 @@ let cachedToken = {
   lastRefresh: 0,
   isRefreshing: false,
 };
+
+// ============================================================================
+// 配置缓存
+// ============================================================================
+
+let appConfig = null;
+let configExpiry = 0;
+
+// ============================================================================
+// 腾讯云COS客户端
+// ============================================================================
+
+const cosClient = new COS({
+  SecretId: process.env.TENCENT_COS_SECRET_ID,
+  SecretKey: process.env.TENCENT_COS_SECRET_KEY,
+});
 
 // ============================================================================
 // 辅助函数
@@ -108,27 +126,91 @@ function isRetryableError(error) {
 }
 
 /**
+ * 从腾讯云COS加载配置
+ */
+async function loadConfig() {
+  // 检查配置缓存是否有效（缓存5分钟）
+  if (appConfig && Date.now() < configExpiry) {
+    console.log('✅ 使用缓存的配置');
+    return appConfig;
+  }
+
+  try {
+    console.log('🔄 从腾讯云COS加载配置');
+
+    // 并发加载配置文件
+    const [secretsResponse, configResponse] = await Promise.all([
+      getCosObject('secrets.json'),
+      getCosObject('config.json')
+    ]);
+
+    // 解析配置
+    const secrets = JSON.parse(secretsResponse.Body.toString());
+    const config = JSON.parse(configResponse.Body.toString());
+
+    // 合并配置
+    appConfig = {
+      ...secrets,
+      ...config
+    };
+
+    // 设置配置缓存过期时间（5分钟）
+    configExpiry = Date.now() + (5 * 60 * 1000);
+
+    console.log('✅ 配置加载成功');
+    console.log('📊 配置项数量:', Object.keys(appConfig).length);
+
+    return appConfig;
+  } catch (error) {
+    console.error('❌ 配置加载失败:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * 从腾讯云COS获取文件内容
+ */
+async function getCosObject(fileName) {
+  return new Promise((resolve, reject) => {
+    cosClient.getObject({
+      Bucket: process.env.TENCENT_COS_BUCKET,
+      Region: process.env.TENCENT_COS_REGION,
+      Key: `config/${fileName}`,
+      Timeout: CONFIG.TIMEOUT.CONFIG,
+    }, (err, data) => {
+      if (err) {
+        console.error('❌ COS文件获取失败:', err.message);
+        reject(err);
+      } else {
+        resolve(data);
+      }
+    });
+  });
+}
+
+/**
  * 获取私钥
  * @returns {string}
  * @throws {Error}
  */
-function getPrivateKey() {
+async function getPrivateKey() {
+  const config = await loadConfig();
   let privateKey;
 
-  if (process.env.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64) {
+  if (config.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64) {
     console.log('🔑 使用 Base64 编码的私钥');
     privateKey = Buffer.from(
-      process.env.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64,
+      config.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64,
       'base64'
     ).toString('utf-8');
-  } else if (process.env.COZE_JWT_OAUTH_PRIVATE_KEY) {
+  } else if (config.COZE_JWT_OAUTH_PRIVATE_KEY) {
     console.log('🔑 使用原始私钥');
-    privateKey = process.env.COZE_JWT_OAUTH_PRIVATE_KEY;
+    privateKey = config.COZE_JWT_OAUTH_PRIVATE_KEY;
     if (privateKey.includes('\\n')) {
       privateKey = privateKey.replace(/\\n/g, '\n');
     }
   } else {
-    throw new Error('未找到私钥环境变量');
+    throw new Error('未找到私钥配置');
   }
 
   console.log('📊 私钥长度:', privateKey.length, '字符');
@@ -144,10 +226,12 @@ function getPrivateKey() {
 }
 
 /**
- * 验证环境变量
+ * 验证配置
  * @throws {Error}
  */
-function validateEnvironment() {
+async function validateConfig() {
+  const config = await loadConfig();
+
   const required = [
     'COZE_JWT_OAUTH_CLIENT_ID',
     'COZE_JWT_OAUTH_PUBLIC_KEY_ID',
@@ -157,12 +241,12 @@ function validateEnvironment() {
   const errors = [];
 
   for (const key of required) {
-    if (!process.env[key]) {
-      errors.push(`缺少必需的环境变量: ${key}`);
+    if (!config[key]) {
+      errors.push(`缺少必需的配置项: ${key}`);
     }
   }
 
-  if (!process.env.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64 && !process.env.COZE_JWT_OAUTH_PRIVATE_KEY) {
+  if (!config.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64 && !config.COZE_JWT_OAUTH_PRIVATE_KEY) {
     errors.push('至少需要配置 COZE_JWT_OAUTH_PRIVATE_KEY_BASE64 或 COZE_JWT_OAUTH_PRIVATE_KEY 其中之一');
   }
 
@@ -170,7 +254,7 @@ function validateEnvironment() {
     throw new Error(errors.join('\n'));
   }
 
-  console.log('✅ 环境变量验证通过');
+  console.log('✅ 配置验证通过');
   return true;
 }
 
@@ -187,18 +271,19 @@ async function generateJWT() {
   try {
     console.log('🚀 开始生成 JWT');
 
+    const config = await loadConfig();
     const now = Math.floor(Date.now() / 1000);
 
     const payload = {
-      iss: process.env.COZE_JWT_OAUTH_CLIENT_ID,
+      iss: config.COZE_JWT_OAUTH_CLIENT_ID,
       aud: 'api.coze.cn',
       iat: now,
       exp: now + CONFIG.CACHE.JWT_TTL,
       jti: generateRandomString(32),
     };
 
-    if (process.env.COZE_JWT_SESSION_NAME) {
-      payload.session_name = process.env.COZE_JWT_SESSION_NAME;
+    if (config.COZE_JWT_SESSION_NAME) {
+      payload.session_name = config.COZE_JWT_SESSION_NAME;
       console.log('🔐 会话隔离已启用');
     }
 
@@ -209,7 +294,7 @@ async function generateJWT() {
     console.log('   exp:', payload.exp, `(${new Date(payload.exp * 1000).toISOString()})`);
     console.log('   jti:', payload.jti);
 
-    const privateKey = getPrivateKey();
+    const privateKey = await getPrivateKey();
     const pkcs8Key = await importPKCS8(privateKey, 'RS256');
     console.log('✅ 私钥导入成功');
 
@@ -217,7 +302,7 @@ async function generateJWT() {
       new SignJWT(payload)
         .setProtectedHeader({
           alg: 'RS256',
-          kid: process.env.COZE_JWT_OAUTH_PUBLIC_KEY_ID,
+          kid: config.COZE_JWT_OAUTH_PUBLIC_KEY_ID,
           typ: 'JWT',
         })
         .sign(pkcs8Key),
@@ -300,7 +385,7 @@ async function getAccessTokenCozeWay(jwt) {
 async function getAccessTokenWithRetry() {
   console.log('🚀 开始获取 Access Token（带重试）');
 
-  validateEnvironment();
+  await validateConfig();
 
   const jwt = await generateJWT();
 
@@ -413,8 +498,10 @@ async function getValidAccessToken() {
  * @throws {Error}
  */
 async function callCozeWorkflowWithRetry(params) {
+  const config = await loadConfig();
+  
   console.log('🎯 开始调用 Coze 工作流 (OAuth JWT 认证)');
-  console.log('📋 工作流 ID:', process.env.COZE_WORKFLOW_ID);
+  console.log('📋 工作流 ID:', config.COZE_WORKFLOW_ID);
 
   const accessToken = await getValidAccessToken();
   console.log('✅ Access Token 准备就绪');
@@ -427,7 +514,7 @@ async function callCozeWorkflowWithRetry(params) {
         axios.post(
           CONFIG.ENDPOINTS.WORKFLOW,
           {
-            workflow_id: process.env.COZE_WORKFLOW_ID,
+            workflow_id: config.COZE_WORKFLOW_ID,
             parameters: params || {},
             is_async: false,
           },
@@ -496,40 +583,45 @@ async function callCozeWorkflowWithRetry(params) {
 }
 
 // ============================================================================
-// Vercel API 入口
+// EdgeOne API 入口
 // ============================================================================
 
 /**
  * API 处理器
- * @param {Object} req - 请求对象
- * @param {Object} res - 响应对象
+ * @param {Object} request - 请求对象
+ * @param {Object} context - 上下文对象
  */
-export default async function handler(req, res) {
+export default async function handler(request, context) {
   const requestId = generateRandomString(16);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`🎯 API 调用开始 [ID: ${requestId}]`);
-  console.log('📋 请求方法:', req.method);
-  console.log('📋 请求路径:', req.url);
+  console.log('📋 请求方法:', request.method);
+  console.log('📋 请求路径:', request.url);
   console.log('📋 请求时间:', new Date().toISOString());
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({
       success: false,
       error: 'Method not allowed',
       requestId,
+    }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
   const startTime = Date.now();
 
   try {
-    const result = await callCozeWorkflowWithRetry(req.body.params || {});
+    // 解析请求体
+    const reqBody = await request.json();
+    const result = await callCozeWorkflowWithRetry(reqBody.params || {});
 
     const duration = Date.now() - startTime;
     console.log('🎉 API 调用成功');
     console.log(`📊 总耗时: ${duration}ms`);
 
-    return res.status(200).json({
+    return new Response(JSON.stringify({
       success: true,
       data: result,
       authMethod: 'OAuth JWT (Production-Ready)',
@@ -539,6 +631,9 @@ export default async function handler(req, res) {
         tokenRemainingSeconds: Math.max(0, Math.floor((cachedToken.expiresAt - Date.now()) / 1000)),
         tokenExpiresAt: new Date(cachedToken.expiresAt).toISOString(),
       },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
@@ -563,7 +658,10 @@ export default async function handler(req, res) {
       errorResponse.details = err.response.data;
     }
 
-    return res.status(500).json(errorResponse);
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } finally {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   }
@@ -576,10 +674,23 @@ export default async function handler(req, res) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('🧪 本地测试模式\n');
 
-  process.env.COZE_JWT_OAUTH_CLIENT_ID = 'your_client_id';
-  process.env.COZE_JWT_OAUTH_PUBLIC_KEY_ID = 'your_public_key_id';
-  process.env.COZE_JWT_OAUTH_PRIVATE_KEY_BASE64 = 'your_base64_private_key';
-  process.env.COZE_WORKFLOW_ID = '7620670520015700019';
+  // 设置测试环境变量
+  process.env.TENCENT_COS_SECRET_ID = 'your-cos-secret-id';
+  process.env.TENCENT_COS_SECRET_KEY = 'your-cos-secret-key';
+  process.env.TENCENT_COS_BUCKET = 'your-bucket-name';
+  process.env.TENCENT_COS_REGION = 'ap-guangzhou';
+
+  // 测试配置加载
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📝 测试配置加载');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  try {
+    await loadConfig();
+    console.log('\n✅ 配置加载测试通过\n');
+  } catch (error) {
+    console.error('\n❌ 配置加载测试失败:', error.message, '\n');
+  }
 
   // 测试 JWT 生成
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -591,18 +702,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log('\n✅ JWT 生成测试通过\n');
   } catch (error) {
     console.error('\n❌ JWT 生成测试失败:', error.message, '\n');
-  }
-
-  // 测试工作流调用
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('📝 测试工作流调用');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-  try {
-    const result = await callCozeWorkflowWithRetry({ test: 'data' });
-    console.log('\n✅ 工作流调用测试通过');
-    console.log('📋 返回结果:', JSON.stringify(result, null, 2), '\n');
-  } catch (error) {
-    console.error('\n❌ 工作流调用测试失败:', error.message, '\n');
   }
 }
