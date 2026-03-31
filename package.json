@@ -2,7 +2,9 @@
   "name": "feishu-coze-integration",
   "version": "1.0.0",
   "dependencies": {
-    "axios": "^1.13.6",
+    "axios": "^1.14.0",
+    "cos-nodejs-sdk-v5": "^2.15.4",
+    "dotenv": "^17.3.1",
     "jose": "^6.2.2"
   },
   "type": "module"

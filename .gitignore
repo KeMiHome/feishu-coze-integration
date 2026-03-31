@@ -1,5 +1,7 @@
 node_modules/
 api/bak/
+config/
+test_scripts/
 .env
 .vercel/
 .vercel
