@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ba33f1df-30b0-4be1-9efd-19f977b52483" name="更改" comment="update:JWTv1版本">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/functions/api/index.js" afterDir="false" />
+    <list default="true" id="ba33f1df-30b0-4be1-9efd-19f977b52483" name="更改" comment="调试">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,6 +59,7 @@
 }</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/functions" />
       <recent name="$PROJECT_DIR$/test_scripts" />
     </key>
   </component>
@@ -103,7 +103,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775013740560</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="调试">
+      <option name="closed" value="true" />
+      <created>1775023713816</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1775023713816</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -114,6 +122,7 @@
     <MESSAGE value="fix: 修复腾讯云EdgeOne认证" />
     <MESSAGE value="fixed:腾讯云EdgeOne认证bug" />
     <MESSAGE value="update:JWTv1版本" />
-    <option name="LAST_COMMIT_MESSAGE" value="update:JWTv1版本" />
+    <MESSAGE value="调试" />
+    <option name="LAST_COMMIT_MESSAGE" value="调试" />
   </component>
 </project>
