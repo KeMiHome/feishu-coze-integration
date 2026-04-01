@@ -1,6 +1,26 @@
 import axios from 'axios';
 import { SignJWT, importPKCS8 } from 'jose';
 import COS from 'cos-nodejs-sdk-v5';
+// ============================================================================
+// 配置🔥本地测试时加载环境变量（远程部署时不会执行）
+// ============================================================================
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const envFile = join(__dirname, '.env.local');
+
+try {
+  // 仅在文件存在时加载环境变量
+  require('fs').accessSync(envFile, require('fs').constants.R_OK);
+  config({ path: envFile });
+  console.log('✅ 本地环境变量已加载');
+} catch (error) {
+  // 文件不存在或无权限（远程部署时会执行）
+  console.log('⚠️  未找到本地环境变量文件，使用系统环境变量');
+}
 
 // ============================================================================
 // Coze OAuth JWT - 生产级完整版（腾讯云EdgeOne适配）

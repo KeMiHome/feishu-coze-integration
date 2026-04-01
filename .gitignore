@@ -1,8 +1,28 @@
-node_modules/
-api/bak/
-config/
-test_scripts/
+# 环境变量（最重要）
 .env
+.env.local
+.env.*.local
+
+# EdgeOne 开发配置（本地测试使用）
+.edgeone/
+.edgeone
 .vercel/
 .vercel
-.env*.local
+
+# 依赖
+node_modules/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 测试临时文件
+test_scripts/
+
+# 系统备份及其他
+api/bak/
+config/
