@@ -11,6 +11,7 @@ import COS from 'cos-nodejs-sdk-v5';
 // 3. 用户信息传递：自动将用户信息传递给Coze工作流
 // 4. 智能缓存：Access Token自动缓存与刷新
 // 5. 完整错误处理：详细日志与错误分类
+// 6. 支持动态 workflow_id（从参数读取，也可使用默认值）
 // ============================================================================
 
 // ============================================================================
@@ -92,7 +93,6 @@ async function loadConfig(env) {
 
   try {
     console.log('🔄 从腾讯云COS加载配置');
-
     const cosClient = new COS({
       SecretId: env.TENCENT_COS_SECRET_ID,
       SecretKey: env.TENCENT_COS_SECRET_KEY,
@@ -173,11 +173,11 @@ async function validateConfig(config) {
   const required = [
     'COZE_JWT_OAUTH_CLIENT_ID',
     'COZE_JWT_OAUTH_PUBLIC_KEY_ID',
-    'COZE_WORKFLOW_ID',
     'USERS_CONFIG',
+    // 注意：COZE_WORKFLOW_ID 不再是必填项，可以从参数传入
   ];
-
   const errors = [];
+
   for (const key of required) {
     if (!config[key]) {
       errors.push(`缺少必需的配置项: ${key}`);
@@ -223,7 +223,6 @@ async function getUserByApiKey(config, apiKey) {
     console.warn('⚠️  用户配置中没有 users 字段');
     return null;
   }
-
   const user = usersConfig.users[apiKey];
   if (user) {
     console.log('✅ 找到用户配置:', user.user_name);
@@ -237,7 +236,6 @@ async function getUserByApiKey(config, apiKey) {
 
 async function validateUserCall(request, config) {
   console.log('🔐 开始用户身份验证');
-
   const apiKey = request.headers.get('user-api-key');
   console.log('📋 请求 Headers 中的 User-API-Key:', apiKey ? apiKey.substring(0, 10) + '...' : '未提供');
 
@@ -273,6 +271,7 @@ async function validateUserCall(request, config) {
 async function generateJWT(config) {
   try {
     console.log('🚀 开始生成 JWT');
+
     const now = Math.floor(Date.now() / 1000);
     const payload = {
       iss: config.COZE_JWT_OAUTH_CLIENT_ID,
@@ -296,6 +295,7 @@ async function generateJWT(config) {
 
     const privateKey = await getPrivateKey(config);
     const pkcs8Key = await importPKCS8(privateKey, 'RS256');
+
     console.log('✅ 私钥导入成功');
 
     const jwt = await new SignJWT(payload)
@@ -308,7 +308,6 @@ async function generateJWT(config) {
 
     console.log('✅ JWT 生成成功');
     console.log('📊 JWT 长度:', jwt.length, '字符');
-
     return jwt;
   } catch (error) {
     console.error('❌ JWT 生成失败:', error.message);
@@ -405,11 +404,13 @@ async function getValidAccessToken(config) {
   }
 
   cachedToken.isRefreshing = true;
+
   try {
     const tokenResponse = await getAccessTokenWithRetry(config);
     cachedToken.accessToken = tokenResponse.access_token;
     cachedToken.expiresAt = tokenResponse.expires_in * 1000;
     cachedToken.lastRefresh = now;
+
     console.log('✅ Access Token 已刷新并缓存');
     return tokenResponse.access_token;
   } finally {
@@ -418,11 +419,19 @@ async function getValidAccessToken(config) {
 }
 
 // ============================================================================
-// 工作流调用（多租户版）
+// 工作流调用（多租户版 + 支持动态 workflow_id）
 // ============================================================================
 async function callCozeWorkflowWithRetry(params, user, config) {
+  // 从参数中提取 workflow_id（优先使用参数中的）
+  const workflowId = params.workflow_id || config.COZE_WORKFLOW_ID;
+
+  if (!workflowId) {
+    throw new Error('未指定 workflow_id，请在参数中传递或配置默认值');
+  }
+
   console.log('🎯 开始调用 Coze 工作流 (OAuth JWT 认证 - 多租户版)');
-  console.log('📋 工作流 ID:', config.COZE_WORKFLOW_ID);
+  console.log('📋 工作流 ID:', workflowId);
+  console.log('📋 来源:', params.workflow_id ? '参数传入' : '配置文件默认值');
 
   // 显示用户信息
   console.log('👤 用户信息:');
@@ -434,9 +443,12 @@ async function callCozeWorkflowWithRetry(params, user, config) {
   const accessToken = await getValidAccessToken(config);
   console.log('✅ Access Token 准备就绪');
 
+  // 从参数中删除 workflow_id，不要传给 Coze API
+  const { workflow_id, ...workflowParams } = params;
+
   // 丰富参数，添加用户信息
   const enrichedParams = {
-    ...params,
+    ...workflowParams,
     user_context: {
       User_API_Key: user.user_api_key,
       UserName: user.user_name,
@@ -457,7 +469,7 @@ async function callCozeWorkflowWithRetry(params, user, config) {
       const response = await axios.post(
         CONFIG.ENDPOINTS.WORKFLOW,
         {
-          workflow_id: config.COZE_WORKFLOW_ID,
+          workflow_id: workflowId,
           parameters: enrichedParams,
           is_async: false,
         },
@@ -545,8 +557,8 @@ export async function onRequest(context) {
 
     // 调用工作流（带用户信息）
     const result = await callCozeWorkflowWithRetry(reqBody.params || {}, user, config);
-    const duration = Date.now() - startTime;
 
+    const duration = Date.now() - startTime;
     console.log('🎉 API 调用成功');
     console.log(`📊 总耗时: ${duration}ms`);
 

@@ -4,14 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ba33f1df-30b0-4be1-9efd-19f977b52483" name="更改" comment="测试功能问题">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-jwt-oauth-v1.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/_archive/2026-04-12/coze-jwt-oauth-v1.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-jwt-oauth-v2.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/_archive/2026-04-12/coze-jwt-oauth-v2.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-pat-oauth-v1.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/_archive/2026-04-12/coze-pat-oauth-v1.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/hello/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/hello/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/v1/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/v1/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/v2/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/v2/index.js" afterDir="false" />
+    <list default="true" id="ba33f1df-30b0-4be1-9efd-19f977b52483" name="更改" comment="cloud-functions目录">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cloud-functions/v1/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/v1/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cloud-functions/v2/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/v2/index.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -207,7 +203,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775982887232</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="cloud-functions目录">
+      <option name="closed" value="true" />
+      <created>1775983059821</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1775983059821</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -223,6 +227,7 @@
     <MESSAGE value="renew：重新调试" />
     <MESSAGE value="update:JWT 鉴权" />
     <MESSAGE value="测试功能问题" />
-    <option name="LAST_COMMIT_MESSAGE" value="测试功能问题" />
+    <MESSAGE value="cloud-functions目录" />
+    <option name="LAST_COMMIT_MESSAGE" value="cloud-functions目录" />
   </component>
 </project>
