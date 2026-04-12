@@ -20,10 +20,7 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# 测试临时文件
-test_scripts/
-
 # 系统备份及其他
-functions/api/bak/
+functions/_archive/
 config/
 Markdown 模板/
