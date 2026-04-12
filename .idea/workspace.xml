@@ -4,13 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ba33f1df-30b0-4be1-9efd-19f977b52483" name="更改" comment="renew：重新调试">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="ba33f1df-30b0-4be1-9efd-19f977b52483" name="更改" comment="update:JWT 鉴权">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/coze-jwt-oauth-v1.js" beforeDir="false" afterPath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-jwt-oauth-v1.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/coze-jwt-oauth-v2.js" beforeDir="false" afterPath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-jwt-oauth-v2.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/coze-pat-oauth-v1.js" beforeDir="false" afterPath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-pat-oauth-v1.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,6 +39,9 @@
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="3Bi07GNOX8HSCQ9Rpiov9yw8j0n" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -134,7 +132,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775918343211</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="update:JWT 鉴权">
+      <option name="closed" value="true" />
+      <created>1775978604758</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1775978604758</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -148,6 +154,7 @@
     <MESSAGE value="调试" />
     <MESSAGE value="调试： Hello World 函数" />
     <MESSAGE value="renew：重新调试" />
-    <option name="LAST_COMMIT_MESSAGE" value="renew：重新调试" />
+    <MESSAGE value="update:JWT 鉴权" />
+    <option name="LAST_COMMIT_MESSAGE" value="update:JWT 鉴权" />
   </component>
 </project>
