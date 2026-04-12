@@ -21,6 +21,6 @@ npm-debug.log*
 Thumbs.db
 
 # 系统备份及其他
-functions/_archive/
+cloud-functions/_archive/
 config/
 Markdown 模板/

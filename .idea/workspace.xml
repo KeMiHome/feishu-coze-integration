@@ -5,7 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ba33f1df-30b0-4be1-9efd-19f977b52483" name="更改" comment="测试功能问题">
-      <change beforePath="$PROJECT_DIR$/functions/hello/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/functions/hello/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-jwt-oauth-v1.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/_archive/2026-04-12/coze-jwt-oauth-v1.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-jwt-oauth-v2.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/_archive/2026-04-12/coze-jwt-oauth-v2.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/_archive/2026-04-12/coze-pat-oauth-v1.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/_archive/2026-04-12/coze-pat-oauth-v1.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/hello/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/hello/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/v1/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/v1/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/v2/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/cloud-functions/v2/index.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -193,7 +199,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775982439218</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="测试功能问题">
+      <option name="closed" value="true" />
+      <created>1775982887232</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1775982887232</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
